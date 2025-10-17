@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Web AR – Video op afbeelding</title>
+
+  <!-- A-Frame + MindAR (image) -->
+  <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+
+  <style>
+    html,body {margin:0;height:100%;background:#000;}
+    /* Optioneel: kleine overlay instructie */
+    .hint {
+      position: fixed; left: 50%; transform: translateX(-50%);
+      bottom: 16px; background: rgba(0,0,0,.55); color: #fff;
+      padding: 10px 14px; border-radius: 10px; font-family: system-ui, sans-serif;
+      font-size: 14px; line-height: 1.2; z-index: 10; pointer-events: none;
+    }
+    .hidden { display:none; }
+  </style>
+</head>
+<body>
+
+  <div id="hint" class="hint">Richt je camera op de afbeelding</div>
+
+  <!--
+    Belangrijk:
+    - imageTargetSrc: naar jouw targets.mind
+    - autoStart: true = geen startknop
+    - uiLoading/uiScanning/uiError: uit = schoon beeld
+  -->
+  <a-scene
+    mindar-image="imageTargetSrc: ./targets.mind; autoStart: true; uiLoading: false; uiScanning: false; uiError: false;"
+    vr-mode-ui="enabled: false"
+    device-orientation-permission-ui="enabled: false"
+    renderer="colorManagement: true, physicallyCorrectLights: true, logarithmicDepthBuffer: true"
+    embedded
+  >
+    <a-assets>
+      <!-- Dezelfde afbeelding als je target (handig maar niet verplicht) -->
+      <img id="target-img" src="./target.jpg" crossorigin="anonymous" />
+      <!-- De video die over de afbeelding moet komen -->
+      <video id="promo" src="./video.mp4"
+             preload="auto" loop muted playsinline webkit-playsinline
+             crossorigin="anonymous"></video>
+    </a-assets>
+
+    <!-- Camera wordt door MindAR beheerd -->
+    <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+
+    <!-- Anchor voor target #0 (eerste afbeelding in je targets.mind) -->
+    <a-entity id="anchor" mindar-image-target="targetIndex: 0">
+      <!--
+        a-video tekent de video op een vlak. width/height bepalen de verhouding.
+        Pas de breedte aan zodat de video de target mooi vult. 1 x 0.5625 is 16:9.
+        Wil je exact het target vullen, zet de verhouding gelijk aan je target-afbeelding.
+      -->
+      <a-video id="promoPlane"
+               src="#promo"
+               position="0 0 0"
+               rotation="0 0 0"
+               width="1"
+               height="0.5625"
+               material="shader: flat;">
+      </a-video>
+    </a-entity>
+  </a-scene>
+
+  <script>
+    // Autoplay video zodra target gevonden is (en pauze als je ‘m kwijt bent)
+    const videoEl = document.getElementById('promo');
+    const anchorEl = document.getElementById('anchor');
+    const hintEl = document.getElementById('hint');
+
+    // MindAR events
+    anchorEl.addEventListener('targetFound', async () => {
+      hintEl.classList.add('hidden');
+      try {
+        // iOS/Chrome vereisen vaak muted + playsinline (is al gezet) voor autoplay
+        await videoEl.play();
+      } catch (e) {
+        // Als autoplay toch blokkeert, toon korte tap-hint
+        hintEl.textContent = 'Tik om de video te starten';
+        hintEl.classList.remove('hidden');
+        const oneTap = () => {
+          videoEl.play().finally(() => {
+            hintEl.classList.add('hidden');
+            window.removeEventListener('touchend', oneTap);
+            window.removeEventListener('click', oneTap);
+          });
+        };
+        window.addEventListener('touchend', oneTap, { once: true });
+        window.addEventListener('click', oneTap, { once: true });
+      }
+    });
+
+    anchorEl.addEventListener('targetLost', () => {
+      videoEl.pause();
+      hintEl.textContent = 'Richt je camera op de afbeelding';
+      hintEl.classList.remove('hidden');
+    });
+
+    // Als AR klaar is (camera toestemming gegeven)
+    document.querySelector('a-scene').addEventListener('arReady', () => {
+      // Optioneel: je kunt hier logging doen of analytics
+      // console.log('AR ready');
+    });
+
+    // Extra zekerheid: als video geladen is en target al in beeld komt, start ‘m.
+    videoEl.addEventListener('loadeddata', () => {
+      // niets nodig, maar goed om te weten dat hij klaar staat
+    });
+  </script>
+</body>
+</html>
