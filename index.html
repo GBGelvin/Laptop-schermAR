@@ -2,141 +2,74 @@
 <html lang="nl">
 <head>
   <meta charset="utf-8" />
-  <title>WebAR – Video op afbeelding</title>
+  <title>WebAR (MindAR) – Video op afbeelding</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="theme-color" content="#000000" />
-
-  <!-- A-Frame + MindAR (image) – versies die stabiel werken op iOS -->
+  <!-- A-Frame + MindAR (pin versies) -->
   <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image.prod.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
-
   <style>
     html,body{margin:0;height:100%;background:#000}
-    .hint{
-      position:fixed;left:50%;transform:translateX(-50%);
-      bottom:16px;background:rgba(0,0,0,.55);color:#fff;
-      padding:10px 14px;border-radius:10px;font:14px/1.2 system-ui;
-      z-index:10;text-align:center;max-width:90vw
-    }
+    .hint{position:fixed;left:50%;transform:translateX(-50%);bottom:16px;background:rgba(0,0,0,.55);
+          color:#fff;padding:10px 14px;border-radius:10px;font:14px/1.2 system-ui;z-index:10;text-align:center}
     .hidden{display:none}
-    .btn{
-      display:inline-block;margin-top:8px;padding:8px 12px;border-radius:8px;
-      background:#ffffff;color:#000;font-weight:600
-    }
-    /* voorkom dat iets over het AR-canvas heen ligt */
-    canvas, video, a-scene{touch-action:none}
   </style>
 </head>
 <body>
-  <!-- Instructie-overlay -->
-  <div id="hint" class="hint">
-    Richt je camera op de afbeelding
-    <div><small>(Sta camera toe; het kan 1–2 sec duren)</small></div>
-    <a id="unmute" class="btn hidden" href="javascript:void(0)">Zet geluid aan</a>
-  </div>
+  <div id="hint" class="hint">Richt je camera op de afbeelding</div>
 
-  <!-- AR scene -->
   <a-scene
     mindar-image="imageTargetSrc: ./targets.mind; autoStart: true; uiLoading: false; uiScanning: false; uiError: false;"
-    vr-mode-ui="enabled: false"
-    device-orientation-permission-ui="enabled: false"
     renderer="colorManagement: true; physicallyCorrectLights: true; logarithmicDepthBuffer: true; alpha: false; antialias: true"
+    device-orientation-permission-ui="enabled: false"
+    vr-mode-ui="enabled: false"
     embedded
   >
     <a-assets timeout="60000">
-      <!-- JOUW video (zelfde map als index.html) -->
       <video id="promo" src="./video.mp4"
-             preload="auto" loop muted playsinline webkit-playsinline
-             crossorigin="anonymous"></video>
+             preload="auto" loop muted playsinline webkit-playsinline crossorigin="anonymous"></video>
     </a-assets>
 
-    <!-- Camera door MindAR beheerd -->
     <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
-    <!-- Target #0 uit targets.mind -->
     <a-entity id="anchor" mindar-image-target="targetIndex: 0">
-      <!-- Pas width/height aan naar verhouding van je target (hier 16:9 voorbeeld) -->
-      <a-video id="plane" src="#promo"
-               position="0 0 0"
-               width="1"
-               height="0.5625"
-               material="shader: flat;">
-      </a-video>
+      <!-- Zet de verhouding van je target (hier 16:9). Pas zo nodig aan. -->
+      <a-video id="plane" src="#promo" width="1" height="0.5625" position="0 0 0" material="shader: flat;"></a-video>
     </a-entity>
   </a-scene>
 
   <script>
-    const hintEl = document.getElementById('hint');
-    const unmuteBtn = document.getElementById('unmute');
-    const videoEl = document.getElementById('promo');
-    const anchorEl = document.getElementById('anchor');
+    const hint = document.getElementById('hint');
+    const video = document.getElementById('promo');
+    const anchor = document.getElementById('anchor');
 
-    // Start/pauzeer video bij target found/lost
-    anchorEl.addEventListener('targetFound', async () => {
-      hintEl.classList.add('hidden');
-      try {
-        await videoEl.play();
-      } catch (e) {
-        // iOS kan 1 tik eisen, toon hint
-        hintEl.classList.remove('hidden');
+    // Basis logging/alerts voor iPhone
+    window.addEventListener('error', e => alert('Fout: ' + (e.message || e)));
+    window.addEventListener('unhandledrejection', e => alert('Promise fout: ' + (e.reason && e.reason.message ? e.reason.message : e.reason)));
+
+    // Check of targets.mind bereikbaar is (padfout = zwart scherm)
+    fetch('./targets.mind', { method: 'HEAD' }).then(r => {
+      if (!r.ok) alert('Kon targets.mind niet laden (HTTP ' + r.status + '). Controleer bestandsnaam/pad.');
+    }).catch(() => alert('Kon targets.mind niet vinden. Zorg dat het naast index.html staat.'));
+
+    // Target events: play/pause video
+    anchor.addEventListener('targetFound', async () => {
+      hint.classList.add('hidden');
+      try { await video.play(); } catch(e) {
+        hint.textContent = 'Tik om de video te starten';
+        hint.classList.remove('hidden');
+        const tap = () => { video.play().finally(() => hint.classList.add('hidden')); window.removeEventListener('touchend', tap); window.removeEventListener('click', tap); };
+        window.addEventListener('touchend', tap, { once: true });
+        window.addEventListener('click', tap, { once: true });
       }
     });
+    anchor.addEventListener('targetLost', () => { video.pause(); hint.textContent = 'Richt je camera op de afbeelding'; hint.classList.remove('hidden'); });
 
-    anchorEl.addEventListener('targetLost', () => {
-      videoEl.pause();
-      hintEl.classList.remove('hidden');
-    });
-
-    // Als autoplay met geluid nodig is, laat "Zet geluid aan" knop zien na eerste play
-    const revealUnmuteIfNeeded = () => {
-      // Als je geluid wil, kan je dit gebruiken: unmute en 1 tik vragen
-      unmuteBtn.classList.remove('hidden');
-    };
-
-    // Probeer direct te spelen zodra data geladen is (muted = toegestaan)
-    videoEl.addEventListener('loadeddata', async () => {
-      try { await videoEl.play(); } catch(e) { /* wacht op targetFound/tik */ }
-      // Toon unmute-knop voor optie met geluid (optioneel)
-      revealUnmuteIfNeeded();
-    });
-
-    // Unmute knop
-    unmuteBtn.addEventListener('click', async () => {
-      try {
-        videoEl.muted = false;
-        await videoEl.play();
-        unmuteBtn.classList.add('hidden');
-        hintEl.classList.add('hidden');
-      } catch(e) {
-        alert('Tik nogmaals om audio te activeren.');
-      }
-    });
-
-    // Fallback: een tik ergens op het scherm probeert video te starten (zonder audio)
-    const oneTapStart = async () => {
-      try { await videoEl.play(); } catch(e) {}
-      window.removeEventListener('touchend', oneTapStart);
-      window.removeEventListener('click', oneTapStart);
-    };
-    window.addEventListener('touchend', oneTapStart, { once: true });
-    window.addEventListener('click', oneTapStart, { once: true });
-
-    // Kleine waarschuwingen voor veelvoorkomende issues
-    window.addEventListener('arError', () => {
-      alert('Er ging iets mis bij het starten van AR. Controleer HTTPS en camerarechten.');
-    });
-
-    // Tip: als je target een andere verhouding heeft dan 16:9, pas width/height aan:
-    // b.v. vierkant -> width="1" height="1"
+    // Extra: probeer alvast te bufferen
+    video.addEventListener('loadeddata', async () => { try { await video.play(); video.pause(); } catch(_) {} });
   </script>
-
-  <!--
-    📌 Deploy tips voor GitHub Pages:
-    - Zet Pages aan op de repo (Settings → Pages → Deploy from branch → main → /root).
-    - Wacht op de groene check; open de Pages-URL (https).
-    - Let op bestandsnamen en hoofd-/kleine letters (case-sensitive).
-    - QR-code laten verwijzen naar jouw Pages-URL (https).
-  -->
 </body>
 </html>
+
