@@ -6,20 +6,30 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="theme-color" content="#000000" />
-  <!-- A-Frame + MindAR (pin versies) -->
+  <!-- A-Frame + MindAR -->
   <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image.prod.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
   <style>
     html,body{margin:0;height:100%;background:#000}
     .hint{position:fixed;left:50%;transform:translateX(-50%);bottom:16px;background:rgba(0,0,0,.55);
-          color:#fff;padding:10px 14px;border-radius:10px;font:14px/1.2 system-ui;z-index:10;text-align:center}
+          color:#fff;padding:10px 14px;border-radius:10px;font:14px/1.2 system-ui;z-index:20;text-align:center;max-width:92vw}
     .hidden{display:none}
+    .btn{display:inline-block;margin-top:8px;padding:10px 14px;border-radius:10px;background:#fff;color:#000;font-weight:700}
+    .cover{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#000;z-index:15}
   </style>
 </head>
 <body>
-  <div id="hint" class="hint">Richt je camera op de afbeelding</div>
+  <!-- overlay voor instructies / fallback -->
+  <div id="cover" class="cover">
+    <div class="hint" id="msg">
+      Camera voorbereiden… één moment.
+      <div style="margin-top:6px;font-size:12px;opacity:.8">Als het langer duurt, wordt hier een knop getoond.</div>
+    </div>
+  </div>
+  <div id="hint" class="hint hidden">Richt je camera op de afbeelding</div>
 
+  <!-- Let op: autoStart laten staan; de permissie-probe triggert de prompt vóór MindAR init -->
   <a-scene
     mindar-image="imageTargetSrc: ./targets.mind; autoStart: true; uiLoading: false; uiScanning: false; uiError: false;"
     renderer="colorManagement: true; physicallyCorrectLights: true; logarithmicDepthBuffer: true; alpha: false; antialias: true"
@@ -35,29 +45,59 @@
     <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
     <a-entity id="anchor" mindar-image-target="targetIndex: 0">
-      <!-- Zet de verhouding van je target (hier 16:9). Pas zo nodig aan. -->
       <a-video id="plane" src="#promo" width="1" height="0.5625" position="0 0 0" material="shader: flat;"></a-video>
     </a-entity>
   </a-scene>
 
   <script>
+    const cover = document.getElementById('cover');
+    const msg = document.getElementById('msg');
     const hint = document.getElementById('hint');
     const video = document.getElementById('promo');
     const anchor = document.getElementById('anchor');
 
-    // Basis logging/alerts voor iPhone
-    window.addEventListener('error', e => alert('Fout: ' + (e.message || e)));
-    window.addEventListener('unhandledrejection', e => alert('Promise fout: ' + (e.reason && e.reason.message ? e.reason.message : e.reason)));
+    // 1) PERMISSIE-PROBE: forceer Safari om nu om camera te vragen
+    (async () => {
+      try {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          throw new Error('Camera-API niet beschikbaar in deze browser.');
+        }
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+        // direct weer sluiten (MindAR opent straks zelf de camera)
+        stream.getTracks().forEach(t => t.stop());
+        cover.classList.add('hidden'); // klaar, geen knop nodig
+      } catch (e) {
+        // Geen prompt / geweigerd: toon duidelijke knop met instructie
+        msg.innerHTML = `
+          Toegang tot de camera is nodig om AR te starten.<br/>
+          <a id="ask" class="btn" href="javascript:void(0)">Camera toestaan</a>
+          <div style="margin-top:8px;font-size:12px;opacity:.8">
+            Werkt het niet? Tik op <b>aA → Website-instellingen</b> en zet <b>Camera</b> op <b>Toestaan</b>, herlaad dan.
+          </div>`;
+        document.getElementById('ask').addEventListener('click', async () => {
+          try {
+            const stream2 = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+            stream2.getTracks().forEach(t => t.stop());
+            cover.classList.add('hidden');
+          } catch (err2) {
+            alert('Camera blijft geblokkeerd. Zet op iOS: Instellingen → Safari → Camera → Toestaan (of per-site via aA).');
+          }
+        });
+      }
+    })();
 
-    // Check of targets.mind bereikbaar is (padfout = zwart scherm)
-    fetch('./targets.mind', { method: 'HEAD' }).then(r => {
-      if (!r.ok) alert('Kon targets.mind niet laden (HTTP ' + r.status + '). Controleer bestandsnaam/pad.');
-    }).catch(() => alert('Kon targets.mind niet vinden. Zorg dat het naast index.html staat.'));
+    // 2) MindAR events: video play/pause & hints
+    window.addEventListener('error', e => console.log('Error:', e.message || e));
+    window.addEventListener('unhandledrejection', e => console.log('Promise:', e.reason));
 
-    // Target events: play/pause video
+    // Extra check: bestaat targets.mind?
+    fetch('./targets.mind', { method: 'HEAD' })
+      .then(r => { if (!r.ok) alert('Kon targets.mind niet laden (HTTP ' + r.status + '). Naam/pad controleren.'); })
+      .catch(() => alert('targets.mind niet gevonden. Plaats naast index.html.'));
+
     anchor.addEventListener('targetFound', async () => {
       hint.classList.add('hidden');
-      try { await video.play(); } catch(e) {
+      try { await video.play(); } catch(_) {
         hint.textContent = 'Tik om de video te starten';
         hint.classList.remove('hidden');
         const tap = () => { video.play().finally(() => hint.classList.add('hidden')); window.removeEventListener('touchend', tap); window.removeEventListener('click', tap); };
@@ -65,11 +105,17 @@
         window.addEventListener('click', tap, { once: true });
       }
     });
-    anchor.addEventListener('targetLost', () => { video.pause(); hint.textContent = 'Richt je camera op de afbeelding'; hint.classList.remove('hidden'); });
 
-    // Extra: probeer alvast te bufferen
-    video.addEventListener('loadeddata', async () => { try { await video.play(); video.pause(); } catch(_) {} });
+    anchor.addEventListener('targetLost', () => {
+      video.pause();
+      hint.textContent = 'Richt je camera op de afbeelding';
+      hint.classList.remove('hidden');
+    });
+
+    // Prebuffer (iOS helpt dit soms)
+    video.addEventListener('loadeddata', async () => {
+      try { await video.play(); video.pause(); } catch(_) {}
+    });
   </script>
 </body>
 </html>
-
