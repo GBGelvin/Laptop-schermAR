@@ -2,74 +2,65 @@
 <html lang="nl">
 <head>
   <meta charset="utf-8" />
-  <title>WebAR – Video op je afbeelding</title>
+  <title>Boost Your Box — WebAR</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#000000" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
 
-  <!-- Frameworks (stabiele versies) -->
+  <!-- A-Frame + MindAR (stabiele versies) -->
   <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image.prod.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
 
   <style>
     :root {
-      --bg:#0b0b0b; --fg:#ffffff; --muted:#a0a0a0; --accent:#ffffff;
-      --radius:14px;
+      --bg:#0b0b0b; --fg:#ffffff; --muted:#a0a0a0; --accent:#ffffff; --radius:14px;
     }
-    html,body { margin:0; height:100%; background:var(--bg); color:var(--fg); font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif; }
-    a-scene, canvas, video { touch-action:none; }
 
-    /* Splash / Loader */
+    /* === Full-bleed camera fixes (iOS/Safari) === */
+    html, body { margin:0; padding:0; height:100dvh; overflow:hidden; background:#000; color:var(--fg); font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif; }
+    a-scene { position:fixed !important; inset:0 !important; width:100vw !important; height:100dvh !important; }
+    canvas, video {
+      position:absolute !important; top:0; left:0;
+      width:100vw !important; height:100dvh !important;
+      object-fit:cover !important; background:#000;
+    }
+
+    /* UI */
     .shell { position:fixed; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px; background:var(--bg); z-index:30; }
-    .logo { font-weight:800; letter-spacing:.3px; }
-    .sub { color:var(--muted); font-size:14px; }
+    .logo { font-weight:900; letter-spacing:.3px; font-size:20px; }
     .spinner { width:36px; height:36px; border-radius:50%; border:3px solid #333; border-top-color:#fff; animation:spin 1s linear infinite; }
     @keyframes spin { to { transform:rotate(360deg);} }
+    .sub { color:var(--muted); font-size:14px; }
 
-    /* Call-to-action */
-    .cta { display:none; }
-    .btn {
-      display:inline-flex; align-items:center; justify-content:center; gap:8px;
+    .btn { display:inline-flex; align-items:center; justify-content:center; gap:8px;
       padding:12px 16px; border-radius:var(--radius); background:var(--accent);
       color:#000; font-weight:700; text-decoration:none; border:none; cursor:pointer;
-      transition:transform .06s ease-in-out, opacity .2s ease;
-    }
+      transition:transform .06s ease-in-out, opacity .2s ease; }
     .btn:active { transform:scale(.98); }
+    .cta { display:none; }
 
-    /* Hint-strip onderin */
-    .hint {
-      position:fixed; left:50%; transform:translateX(-50%);
+    .hint { position:fixed; left:50%; transform:translateX(-50%);
       bottom:16px; padding:10px 14px; border-radius:var(--radius);
       background:rgba(0,0,0,.55); color:#fff; font-size:14px; z-index:20;
-      box-shadow:0 6px 18px rgba(0,0,0,.4);
-    }
+      box-shadow:0 6px 18px rgba(0,0,0,.4); }
     .hidden { display:none; }
 
-    /* Error overlay */
-    .overlay {
-      position:fixed; inset:0; background:rgba(0,0,0,.75);
-      display:none; align-items:center; justify-content:center; z-index:40;
-      padding:24px;
-    }
-    .card {
-      width:min(520px, 92vw); background:#111; color:#fff; border-radius:16px; padding:18px 18px 16px;
-      box-shadow:0 24px 60px rgba(0,0,0,.5); border:1px solid #222;
-    }
+    .overlay { position:fixed; inset:0; background:rgba(0,0,0,.75);
+      display:none; align-items:center; justify-content:center; z-index:40; padding:24px; }
+    .card { width:min(520px, 92vw); background:#111; color:#fff; border-radius:16px; padding:18px 18px 16px;
+      box-shadow:0 24px 60px rgba(0,0,0,.5); border:1px solid #222; }
     .card h3 { margin:0 0 6px 0; font-size:18px; }
     .card p { margin:6px 0 12px; color:#cfcfcf; font-size:14px; }
     .row { display:flex; gap:10px; flex-wrap:wrap; }
-    .btn-alt {
-      background:#1e1e1e; color:#fff; border:1px solid #333; padding:10px 12px; border-radius:12px; cursor:pointer;
-    }
+    .btn-alt { background:#1e1e1e; color:#fff; border:1px solid #333; padding:10px 12px; border-radius:12px; cursor:pointer; }
   </style>
 </head>
 <body>
 
   <!-- Splash / loader / CTA -->
   <div id="shell" class="shell">
-    <!-- Vervang door je logo (SVG/IMG) -->
-    <div class="logo">Jouw Merk</div>
+    <div class="logo">Boost Your Box</div>
     <div class="spinner" id="spinner"></div>
     <div class="sub" id="status">Camera voorbereiden…</div>
     <button id="startBtn" class="btn cta">Start AR</button>
@@ -90,7 +81,7 @@
     </div>
   </div>
 
-  <!-- AR Scene -->
+  <!-- AR Scene (MindAR) -->
   <a-scene
     mindar-image="imageTargetSrc: ./targets.mind; autoStart: true; uiLoading: false; uiScanning: false; uiError: false;"
     renderer="colorManagement: true; physicallyCorrectLights: true; logarithmicDepthBuffer: true; alpha: false; antialias: true"
@@ -106,7 +97,7 @@
     <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
     <a-entity id="anchor" mindar-image-target="targetIndex: 0">
-      <!-- Pas de verhouding aan naar die van jouw target (hier 16:9) -->
+      <!-- Pas de verhouding aan naar je target (hier 16:9) -->
       <a-video id="plane" src="#promo" width="1" height="0.5625" position="0 0 0" material="shader: flat;"></a-video>
     </a-entity>
   </a-scene>
@@ -121,11 +112,8 @@
     const errMsg = document.getElementById('errMsg');
     const retry = document.getElementById('retry');
     const siteSettings = document.getElementById('siteSettings');
-
     const video = document.getElementById('promo');
     const anchor = document.getElementById('anchor');
-
-    let permissionTried = false;
 
     function showCTA() {
       spinner.style.display = 'none';
@@ -137,46 +125,39 @@
       err.style.display = 'flex';
     }
 
-    // iOS-vriendelijke permissie-flow
     async function requestCameraOnce() {
-      permissionTried = true;
       try {
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
           throw new Error('Camera-API niet beschikbaar in deze browser.');
         }
         const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
-        s.getTracks().forEach(t => t.stop()); // MindAR opent eigen stream
-        shell.style.display = 'none';
+        s.getTracks().forEach(t => t.stop());            // MindAR opent eigen stream
+        shell.style.display = 'none';                    // splash weghalen
       } catch (e) {
-        // Als prompt niet verschijnt of geweigerd
-        showCTA();
+        showCTA(); // laat expliciete Start-knop zien
       }
     }
 
-    // Auto-probe: probeer direct (snelste UX). Val terug op CTA als het niet lukt.
+    // Auto-probe; val terug op CTA
     requestCameraOnce();
 
-    // CTA: expliciete user gesture → iOS staat dan prompt/stream toe
+    // Expliciete permissie via user gesture
     startBtn.addEventListener('click', async () => {
       try {
         const s2 = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
         s2.getTracks().forEach(t => t.stop());
         shell.style.display = 'none';
       } catch (e) {
-        showError('Geef kameratoegang via Safari → aA → Website-instellingen → Camera → Toestaan en herlaad.');
+        showError('Geef kameratoegang: Safari → aA → Website-instellingen → Camera → Toestaan. Herlaad daarna.');
       }
     });
 
-    retry.addEventListener('click', () => {
-      err.style.display = 'none';
-      location.reload();
-    });
+    retry.addEventListener('click', () => { err.style.display = 'none'; location.reload(); });
     siteSettings.addEventListener('click', () => {
-      // Uitleg voor de gebruiker; we kunnen Safari-instellingen niet openen via JS.
       alert('In Safari: tik links op aA → Website-instellingen → zet Camera op Toestaan. Herlaad daarna de pagina.');
     });
 
-    // Target events → video play/pause en hint-beheer
+    // MindAR target events → play/pause video + hints
     anchor.addEventListener('targetFound', async () => {
       hint.classList.add('hidden');
       try { await video.play(); } catch(_) {
@@ -193,19 +174,10 @@
       hint.classList.remove('hidden');
     });
 
-    // Prebuffer (iOS helpt dit soms)
-    video.addEventListener('loadeddata', async () => {
-      try { await video.play(); video.pause(); } catch(_) {}
-    });
+    // Prebuffer (helpt op iOS)
+    video.addEventListener('loadeddata', async () => { try { await video.play(); video.pause(); } catch(_) {} });
 
-    // Diagnostiek (optioneel in console)
-    window.addEventListener('arReady', () => console.log('MindAR ready'));
-    window.addEventListener('arError', (e) => {
-      console.warn('MindAR error', e);
-      showError('AR kon niet initialiseren. Controleer HTTPS, cameratoestemming of probeer een andere browser.');
-    });
-
-    // Basale check: bestaat targets.mind?
+    // Basale controle op targets.mind aanwezig
     fetch('./targets.mind', { method:'HEAD' })
       .then(r => { if (!r.ok) showError('Kon targets.mind niet laden (HTTP ' + r.status + '). Controleer bestandsnaam/pad.'); })
       .catch(() => showError('targets.mind niet gevonden. Plaats het naast index.html.'));
