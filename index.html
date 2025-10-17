@@ -2,22 +2,56 @@
 <html lang="nl">
 <head>
   <meta charset="utf-8" />
-  <title>Camera test</title>
+  <title>Boost Your Box — WebAR</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#000000" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+
+  <!-- A-Frame 1.0.4 + AR.js NFT build (zeer iOS-vriendelijk) -->
+  <script src="https://aframe.io/releases/1.0.4/aframe.min.js"></script>
+  <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar-nft.js"></script>
+
   <style>
-    html,body{margin:0;height:100dvh;background:#000;overflow:hidden}
-    video{position:fixed;inset:0;width:100vw;height:100dvh;object-fit:cover}
+    :root { --bg:#0b0b0b; --fg:#fff; --muted:#a0a0a0; --radius:14px; }
+    html,body{margin:0;padding:0;height:100dvh;background:#000;color:var(--fg);font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif;overflow:hidden}
+    /* Full-bleed camera (voorkomt zwarte vlakken) */
+    a-scene{position:fixed !important; inset:0 !important; width:100vw !important; height:100dvh !important}
+    canvas, video{position:absolute !important; top:0; left:0; width:100vw !important; height:100dvh !important; object-fit:cover !important; background:#000}
+
+    /* UI */
+    .hint{position:fixed;left:50%;transform:translateX(-50%);bottom:16px;padding:10px 14px;border-radius:var(--radius);
+          background:rgba(0,0,0,.55);color:#fff;font-size:14px;z-index:20;box-shadow:0 6px 18px rgba(0,0,0,.4)}
+    .brand{position:fixed;top:12px;left:12px;background:rgba(0,0,0,.5);padding:8px 10px;border-radius:12px;font-weight:900;z-index:20}
   </style>
 </head>
 <body>
-  <video id="v" autoplay muted playsinline webkit-playsinline></video>
-  <script>
-    (async ()=> {
-      try {
-        const s = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:'environment' }, audio:false });
-        v.srcObject = s;
-      } catch(e){ alert('Camera-permissie/HTTPS? -> '+e.message); }
-    })();
-  </script>
+  <div class="brand">Boost Your Box</div>
+  <div class="hint">Richt je camera op de afbeelding</div>
+
+  <a-scene
+    vr-mode-ui="enabled: false"
+    renderer="logarithmicDepthBuffer: true; alpha: false; antialias: true"
+    embedded
+    arjs="sourceType: webcam; trackingMethod: best; debugUIEnabled: false;"
+  >
+    <a-assets>
+      <video id="vid" src="./video.mp4" preload="auto" loop muted autoplay playsinline webkit-playsinline crossorigin="anonymous"></video>
+    </a-assets>
+
+    <!-- NFT image tracking: gebruik jouw gegenereerde marker (pad zonder extensie!) -->
+    <a-nft
+      type="nft"
+      url="./nft/your-image"
+      smooth="true"
+      smoothCount="10"
+      smoothTolerance="0.01"
+      smoothThreshold="5"
+    >
+      <!-- Leg de video op de marker; pas breedte/hoogte aan op jouw verhouding (hier 16:9) -->
+      <a-video src="#vid" rotation="-90 0 0" position="0 0 0" width="1" height="0.5625"></a-video>
+    </a-nft>
+
+    <a-entity camera></a-entity>
+  </a-scene>
 </body>
 </html>
