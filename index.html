@@ -2,65 +2,63 @@
 <html lang="nl">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>Web AR – Video op afbeelding</title>
+  <title>WebAR – Video op afbeelding</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="theme-color" content="#000000" />
 
-  <!-- A-Frame + MindAR (image) -->
+  <!-- A-Frame + MindAR (image) – versies die stabiel werken op iOS -->
   <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
 
   <style>
-    html,body {margin:0;height:100%;background:#000;}
-    /* Optioneel: kleine overlay instructie */
-    .hint {
-      position: fixed; left: 50%; transform: translateX(-50%);
-      bottom: 16px; background: rgba(0,0,0,.55); color: #fff;
-      padding: 10px 14px; border-radius: 10px; font-family: system-ui, sans-serif;
-      font-size: 14px; line-height: 1.2; z-index: 10; pointer-events: none;
+    html,body{margin:0;height:100%;background:#000}
+    .hint{
+      position:fixed;left:50%;transform:translateX(-50%);
+      bottom:16px;background:rgba(0,0,0,.55);color:#fff;
+      padding:10px 14px;border-radius:10px;font:14px/1.2 system-ui;
+      z-index:10;text-align:center;max-width:90vw
     }
-    .hidden { display:none; }
+    .hidden{display:none}
+    .btn{
+      display:inline-block;margin-top:8px;padding:8px 12px;border-radius:8px;
+      background:#ffffff;color:#000;font-weight:600
+    }
+    /* voorkom dat iets over het AR-canvas heen ligt */
+    canvas, video, a-scene{touch-action:none}
   </style>
 </head>
 <body>
+  <!-- Instructie-overlay -->
+  <div id="hint" class="hint">
+    Richt je camera op de afbeelding
+    <div><small>(Sta camera toe; het kan 1–2 sec duren)</small></div>
+    <a id="unmute" class="btn hidden" href="javascript:void(0)">Zet geluid aan</a>
+  </div>
 
-  <div id="hint" class="hint">Richt je camera op de afbeelding</div>
-
-  <!--
-    Belangrijk:
-    - imageTargetSrc: naar jouw targets.mind
-    - autoStart: true = geen startknop
-    - uiLoading/uiScanning/uiError: uit = schoon beeld
-  -->
+  <!-- AR scene -->
   <a-scene
     mindar-image="imageTargetSrc: ./targets.mind; autoStart: true; uiLoading: false; uiScanning: false; uiError: false;"
     vr-mode-ui="enabled: false"
     device-orientation-permission-ui="enabled: false"
-    renderer="colorManagement: true, physicallyCorrectLights: true, logarithmicDepthBuffer: true"
+    renderer="colorManagement: true; physicallyCorrectLights: true; logarithmicDepthBuffer: true; alpha: false; antialias: true"
     embedded
   >
-    <a-assets>
-      <!-- Dezelfde afbeelding als je target (handig maar niet verplicht) -->
-      <img id="target-img" src="./target.jpg" crossorigin="anonymous" />
-      <!-- De video die over de afbeelding moet komen -->
+    <a-assets timeout="60000">
+      <!-- JOUW video (zelfde map als index.html) -->
       <video id="promo" src="./video.mp4"
              preload="auto" loop muted playsinline webkit-playsinline
              crossorigin="anonymous"></video>
     </a-assets>
 
-    <!-- Camera wordt door MindAR beheerd -->
+    <!-- Camera door MindAR beheerd -->
     <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
-    <!-- Anchor voor target #0 (eerste afbeelding in je targets.mind) -->
+    <!-- Target #0 uit targets.mind -->
     <a-entity id="anchor" mindar-image-target="targetIndex: 0">
-      <!--
-        a-video tekent de video op een vlak. width/height bepalen de verhouding.
-        Pas de breedte aan zodat de video de target mooi vult. 1 x 0.5625 is 16:9.
-        Wil je exact het target vullen, zet de verhouding gelijk aan je target-afbeelding.
-      -->
-      <a-video id="promoPlane"
-               src="#promo"
+      <!-- Pas width/height aan naar verhouding van je target (hier 16:9 voorbeeld) -->
+      <a-video id="plane" src="#promo"
                position="0 0 0"
-               rotation="0 0 0"
                width="1"
                height="0.5625"
                material="shader: flat;">
@@ -69,49 +67,76 @@
   </a-scene>
 
   <script>
-    // Autoplay video zodra target gevonden is (en pauze als je ‘m kwijt bent)
+    const hintEl = document.getElementById('hint');
+    const unmuteBtn = document.getElementById('unmute');
     const videoEl = document.getElementById('promo');
     const anchorEl = document.getElementById('anchor');
-    const hintEl = document.getElementById('hint');
 
-    // MindAR events
+    // Start/pauzeer video bij target found/lost
     anchorEl.addEventListener('targetFound', async () => {
       hintEl.classList.add('hidden');
       try {
-        // iOS/Chrome vereisen vaak muted + playsinline (is al gezet) voor autoplay
         await videoEl.play();
       } catch (e) {
-        // Als autoplay toch blokkeert, toon korte tap-hint
-        hintEl.textContent = 'Tik om de video te starten';
+        // iOS kan 1 tik eisen, toon hint
         hintEl.classList.remove('hidden');
-        const oneTap = () => {
-          videoEl.play().finally(() => {
-            hintEl.classList.add('hidden');
-            window.removeEventListener('touchend', oneTap);
-            window.removeEventListener('click', oneTap);
-          });
-        };
-        window.addEventListener('touchend', oneTap, { once: true });
-        window.addEventListener('click', oneTap, { once: true });
       }
     });
 
     anchorEl.addEventListener('targetLost', () => {
       videoEl.pause();
-      hintEl.textContent = 'Richt je camera op de afbeelding';
       hintEl.classList.remove('hidden');
     });
 
-    // Als AR klaar is (camera toestemming gegeven)
-    document.querySelector('a-scene').addEventListener('arReady', () => {
-      // Optioneel: je kunt hier logging doen of analytics
-      // console.log('AR ready');
+    // Als autoplay met geluid nodig is, laat "Zet geluid aan" knop zien na eerste play
+    const revealUnmuteIfNeeded = () => {
+      // Als je geluid wil, kan je dit gebruiken: unmute en 1 tik vragen
+      unmuteBtn.classList.remove('hidden');
+    };
+
+    // Probeer direct te spelen zodra data geladen is (muted = toegestaan)
+    videoEl.addEventListener('loadeddata', async () => {
+      try { await videoEl.play(); } catch(e) { /* wacht op targetFound/tik */ }
+      // Toon unmute-knop voor optie met geluid (optioneel)
+      revealUnmuteIfNeeded();
     });
 
-    // Extra zekerheid: als video geladen is en target al in beeld komt, start ‘m.
-    videoEl.addEventListener('loadeddata', () => {
-      // niets nodig, maar goed om te weten dat hij klaar staat
+    // Unmute knop
+    unmuteBtn.addEventListener('click', async () => {
+      try {
+        videoEl.muted = false;
+        await videoEl.play();
+        unmuteBtn.classList.add('hidden');
+        hintEl.classList.add('hidden');
+      } catch(e) {
+        alert('Tik nogmaals om audio te activeren.');
+      }
     });
+
+    // Fallback: een tik ergens op het scherm probeert video te starten (zonder audio)
+    const oneTapStart = async () => {
+      try { await videoEl.play(); } catch(e) {}
+      window.removeEventListener('touchend', oneTapStart);
+      window.removeEventListener('click', oneTapStart);
+    };
+    window.addEventListener('touchend', oneTapStart, { once: true });
+    window.addEventListener('click', oneTapStart, { once: true });
+
+    // Kleine waarschuwingen voor veelvoorkomende issues
+    window.addEventListener('arError', () => {
+      alert('Er ging iets mis bij het starten van AR. Controleer HTTPS en camerarechten.');
+    });
+
+    // Tip: als je target een andere verhouding heeft dan 16:9, pas width/height aan:
+    // b.v. vierkant -> width="1" height="1"
   </script>
+
+  <!--
+    📌 Deploy tips voor GitHub Pages:
+    - Zet Pages aan op de repo (Settings → Pages → Deploy from branch → main → /root).
+    - Wacht op de groene check; open de Pages-URL (https).
+    - Let op bestandsnamen en hoofd-/kleine letters (case-sensitive).
+    - QR-code laten verwijzen naar jouw Pages-URL (https).
+  -->
 </body>
 </html>
